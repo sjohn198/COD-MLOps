@@ -1,0 +1,14 @@
+syntax = "proto3";
+package parameter_server;
+
+service WeightsManager {
+    rpc UpdateWeights (WeightRequest) returns (WeightResponse);
+}
+
+message WeightRequest {
+    repeated float gradients = 1;
+}
+
+message WeightResponse {
+    bool success = 1;
+}

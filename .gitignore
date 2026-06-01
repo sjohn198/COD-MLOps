@@ -5,3 +5,4 @@ BaseballPred/dataset/
 *.safetensors
 **/client_env/
 **/__pycache__/
+**/target/

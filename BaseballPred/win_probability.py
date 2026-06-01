@@ -11,8 +11,7 @@ import torch.nn.functional as F
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support, roc_auc_score
 from tqdm import tqdm
 from safetensors.torch import save_file
-from .write_model_info import to_format_file
-from cod_ml_core.win_predictor import WinPredictor
+from PyToRustComms.python_client.win_predictor import WinPredictor
 
 #python3 -m BaseballPred.win_probability
 
@@ -57,6 +56,22 @@ class BaseballData(IterableDataset):
             for i in range(len(x_tensor)):
                 yield x_tensor[i], y_tensor[i]
     
+class WinPredictor(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+        self.input_layer = nn.Linear(in_features=9, out_features=64)
+        self.hidden_layer = nn.Linear(in_features=64, out_features=32)
+        self.out_layer = nn.Linear(in_features=32, out_features=2)
+
+        self.activation = nn.ReLU()
+
+    def forward(self, x):
+        out = self.input_layer(x)
+        out = self.hidden_layer(self.activation(out))
+        logits = self.out_layer(self.activation(out))
+        return logits
+
 def create_global_scaler(data_files):
     scaler = StandardScaler()
     feature_cols = ["balls", "inning_topbot", "strikes", "on_3b", "on_2b", "on_1b", "outs_when_up", "inning", "run_diff"]
@@ -127,7 +142,6 @@ if __name__ == "__main__":
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=0.01)
     print("test")
-    to_format_file(model, "model_info.txt")
 
     # epochs = 10
     # best_roc_auc = 0.0

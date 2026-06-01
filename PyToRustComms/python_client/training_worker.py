@@ -1,7 +1,7 @@
 import grpc
 import model_pb2
 import model_pb2_grpc
-#from cod_ml_core.win_predictor import WinPredictor
+from win_predictor import WinPredictor
 
 #command to compile proto: python3 -m grpc_tools.protoc -I ../rust_grpc_server/proto --python_out=. --grpc_python_out=. ../rust_grpc_server/proto/model.proto
 

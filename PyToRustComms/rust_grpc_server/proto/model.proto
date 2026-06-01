@@ -2,13 +2,18 @@ syntax = "proto3";
 package parameter_server;
 
 service WeightsManager {
-    rpc UpdateWeights (WeightRequest) returns (WeightResponse);
-}
-
-message WeightRequest {
-    repeated float gradients = 1;
+    rpc UpdateWeights (ModelUpdate) returns (WeightResponse);
 }
 
 message WeightResponse {
     bool success = 1;
+}
+
+message LayerGradient {
+    int32 id = 1;
+    repeated float weights = 2;
+}
+
+message ModelUpdate {
+    repeated LayerGradient layers = 1;
 }

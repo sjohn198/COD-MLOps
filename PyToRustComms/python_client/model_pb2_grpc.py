@@ -36,7 +36,7 @@ class WeightsManagerStub(object):
         """
         self.UpdateWeights = channel.unary_unary(
                 '/parameter_server.WeightsManager/UpdateWeights',
-                request_serializer=model__pb2.WeightRequest.SerializeToString,
+                request_serializer=model__pb2.ModelUpdate.SerializeToString,
                 response_deserializer=model__pb2.WeightResponse.FromString,
                 _registered_method=True)
 
@@ -55,7 +55,7 @@ def add_WeightsManagerServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'UpdateWeights': grpc.unary_unary_rpc_method_handler(
                     servicer.UpdateWeights,
-                    request_deserializer=model__pb2.WeightRequest.FromString,
+                    request_deserializer=model__pb2.ModelUpdate.FromString,
                     response_serializer=model__pb2.WeightResponse.SerializeToString,
             ),
     }
@@ -84,7 +84,7 @@ class WeightsManager(object):
             request,
             target,
             '/parameter_server.WeightsManager/UpdateWeights',
-            model__pb2.WeightRequest.SerializeToString,
+            model__pb2.ModelUpdate.SerializeToString,
             model__pb2.WeightResponse.FromString,
             options,
             channel_credentials,

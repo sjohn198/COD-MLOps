@@ -7,7 +7,10 @@ build = "build.rs"
 [dependencies]
 tonic = "0.11"
 prost = "0.12"
+safetensors = "0.7"
 tokio = { version = "1.36", features = ["macros", "rt-multi-thread"]}
+memmap2 = "0.9"
+
 
 [build-dependencies]
 tonic-build = "0.11"

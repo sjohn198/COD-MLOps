@@ -2,3 +2,4 @@
 BaseballPred/dataset/
 *.pkl
 *.pth
+*.safetensors

@@ -1,0 +1,10 @@
+/Users/sethjohnson/Documents/Programming/Personal Projects/COD-MLOps/PyToRustComms/rust_grpc_server/target/release/deps/safetensors-1debb0b6f914a066.d: /Users/sethjohnson/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/safetensors-0.7.0/src/lib.rs /Users/sethjohnson/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/safetensors-0.7.0/src/slice.rs /Users/sethjohnson/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/safetensors-0.7.0/src/tensor.rs /Users/sethjohnson/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/safetensors-0.7.0/src/../README.md
+
+/Users/sethjohnson/Documents/Programming/Personal Projects/COD-MLOps/PyToRustComms/rust_grpc_server/target/release/deps/libsafetensors-1debb0b6f914a066.rlib: /Users/sethjohnson/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/safetensors-0.7.0/src/lib.rs /Users/sethjohnson/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/safetensors-0.7.0/src/slice.rs /Users/sethjohnson/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/safetensors-0.7.0/src/tensor.rs /Users/sethjohnson/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/safetensors-0.7.0/src/../README.md
+
+/Users/sethjohnson/Documents/Programming/Personal Projects/COD-MLOps/PyToRustComms/rust_grpc_server/target/release/deps/libsafetensors-1debb0b6f914a066.rmeta: /Users/sethjohnson/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/safetensors-0.7.0/src/lib.rs /Users/sethjohnson/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/safetensors-0.7.0/src/slice.rs /Users/sethjohnson/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/safetensors-0.7.0/src/tensor.rs /Users/sethjohnson/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/safetensors-0.7.0/src/../README.md
+
+/Users/sethjohnson/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/safetensors-0.7.0/src/lib.rs:
+/Users/sethjohnson/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/safetensors-0.7.0/src/slice.rs:
+/Users/sethjohnson/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/safetensors-0.7.0/src/tensor.rs:
+/Users/sethjohnson/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/safetensors-0.7.0/src/../README.md:

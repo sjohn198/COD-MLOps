@@ -7,6 +7,12 @@ pub struct WeightResponse {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct WeightsRequest {
+    #[prost(int32, tag = "1")]
+    pub worker_id: i32,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct LayerGradient {
     #[prost(int32, tag = "1")]
     pub id: i32,
@@ -18,6 +24,15 @@ pub struct LayerGradient {
 pub struct ModelUpdate {
     #[prost(message, repeated, tag = "1")]
     pub layers: ::prost::alloc::vec::Vec<LayerGradient>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GoodMorning {}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct WorkerRegistration {
+    #[prost(int32, tag = "1")]
+    pub worker_id: i32,
 }
 /// Generated client implementations.
 pub mod weights_manager_client {
@@ -128,6 +143,57 @@ pub mod weights_manager_client {
                 );
             self.inner.unary(req, path, codec).await
         }
+        pub async fn request_weights(
+            &mut self,
+            request: impl tonic::IntoRequest<super::WeightsRequest>,
+        ) -> std::result::Result<tonic::Response<super::ModelUpdate>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/parameter_server.WeightsManager/RequestWeights",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("parameter_server.WeightsManager", "RequestWeights"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn wake_worker(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GoodMorning>,
+        ) -> std::result::Result<
+            tonic::Response<super::WorkerRegistration>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/parameter_server.WeightsManager/WakeWorker",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("parameter_server.WeightsManager", "WakeWorker"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
     }
 }
 /// Generated server implementations.
@@ -141,6 +207,17 @@ pub mod weights_manager_server {
             &self,
             request: tonic::Request<super::ModelUpdate>,
         ) -> std::result::Result<tonic::Response<super::WeightResponse>, tonic::Status>;
+        async fn request_weights(
+            &self,
+            request: tonic::Request<super::WeightsRequest>,
+        ) -> std::result::Result<tonic::Response<super::ModelUpdate>, tonic::Status>;
+        async fn wake_worker(
+            &self,
+            request: tonic::Request<super::GoodMorning>,
+        ) -> std::result::Result<
+            tonic::Response<super::WorkerRegistration>,
+            tonic::Status,
+        >;
     }
     #[derive(Debug)]
     pub struct WeightsManagerServer<T: WeightsManager> {
@@ -252,6 +329,99 @@ pub mod weights_manager_server {
                     let fut = async move {
                         let inner = inner.0;
                         let method = UpdateWeightsSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/parameter_server.WeightsManager/RequestWeights" => {
+                    #[allow(non_camel_case_types)]
+                    struct RequestWeightsSvc<T: WeightsManager>(pub Arc<T>);
+                    impl<
+                        T: WeightsManager,
+                    > tonic::server::UnaryService<super::WeightsRequest>
+                    for RequestWeightsSvc<T> {
+                        type Response = super::ModelUpdate;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::WeightsRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as WeightsManager>::request_weights(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = RequestWeightsSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/parameter_server.WeightsManager/WakeWorker" => {
+                    #[allow(non_camel_case_types)]
+                    struct WakeWorkerSvc<T: WeightsManager>(pub Arc<T>);
+                    impl<
+                        T: WeightsManager,
+                    > tonic::server::UnaryService<super::GoodMorning>
+                    for WakeWorkerSvc<T> {
+                        type Response = super::WorkerRegistration;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GoodMorning>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as WeightsManager>::wake_worker(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = WakeWorkerSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

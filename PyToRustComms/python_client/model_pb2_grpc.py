@@ -39,12 +39,34 @@ class WeightsManagerStub(object):
                 request_serializer=model__pb2.ModelUpdate.SerializeToString,
                 response_deserializer=model__pb2.WeightResponse.FromString,
                 _registered_method=True)
+        self.RequestWeights = channel.unary_unary(
+                '/parameter_server.WeightsManager/RequestWeights',
+                request_serializer=model__pb2.WeightsRequest.SerializeToString,
+                response_deserializer=model__pb2.ModelUpdate.FromString,
+                _registered_method=True)
+        self.WakeWorker = channel.unary_unary(
+                '/parameter_server.WeightsManager/WakeWorker',
+                request_serializer=model__pb2.GoodMorning.SerializeToString,
+                response_deserializer=model__pb2.WorkerRegistration.FromString,
+                _registered_method=True)
 
 
 class WeightsManagerServicer(object):
     """Missing associated documentation comment in .proto file."""
 
     def UpdateWeights(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def RequestWeights(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def WakeWorker(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -57,6 +79,16 @@ def add_WeightsManagerServicer_to_server(servicer, server):
                     servicer.UpdateWeights,
                     request_deserializer=model__pb2.ModelUpdate.FromString,
                     response_serializer=model__pb2.WeightResponse.SerializeToString,
+            ),
+            'RequestWeights': grpc.unary_unary_rpc_method_handler(
+                    servicer.RequestWeights,
+                    request_deserializer=model__pb2.WeightsRequest.FromString,
+                    response_serializer=model__pb2.ModelUpdate.SerializeToString,
+            ),
+            'WakeWorker': grpc.unary_unary_rpc_method_handler(
+                    servicer.WakeWorker,
+                    request_deserializer=model__pb2.GoodMorning.FromString,
+                    response_serializer=model__pb2.WorkerRegistration.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -86,6 +118,60 @@ class WeightsManager(object):
             '/parameter_server.WeightsManager/UpdateWeights',
             model__pb2.ModelUpdate.SerializeToString,
             model__pb2.WeightResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def RequestWeights(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/parameter_server.WeightsManager/RequestWeights',
+            model__pb2.WeightsRequest.SerializeToString,
+            model__pb2.ModelUpdate.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def WakeWorker(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/parameter_server.WeightsManager/WakeWorker',
+            model__pb2.GoodMorning.SerializeToString,
+            model__pb2.WorkerRegistration.FromString,
             options,
             channel_credentials,
             insecure,

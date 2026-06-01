@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0bmodel.proto\x12\x10parameter_server\"!\n\x0eWeightResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\",\n\rLayerGradient\x12\n\n\x02id\x18\x01 \x01(\x05\x12\x0f\n\x07weights\x18\x02 \x03(\x02\">\n\x0bModelUpdate\x12/\n\x06layers\x18\x01 \x03(\x0b\x32\x1f.parameter_server.LayerGradient2b\n\x0eWeightsManager\x12P\n\rUpdateWeights\x12\x1d.parameter_server.ModelUpdate\x1a .parameter_server.WeightResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0bmodel.proto\x12\x10parameter_server\"!\n\x0eWeightResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\"#\n\x0eWeightsRequest\x12\x11\n\tworker_id\x18\x01 \x01(\x05\",\n\rLayerGradient\x12\n\n\x02id\x18\x01 \x01(\x05\x12\x0f\n\x07weights\x18\x02 \x03(\x02\">\n\x0bModelUpdate\x12/\n\x06layers\x18\x01 \x03(\x0b\x32\x1f.parameter_server.LayerGradient\"\r\n\x0bGoodMorning\"\'\n\x12WorkerRegistration\x12\x11\n\tworker_id\x18\x01 \x01(\x05\x32\x88\x02\n\x0eWeightsManager\x12P\n\rUpdateWeights\x12\x1d.parameter_server.ModelUpdate\x1a .parameter_server.WeightResponse\x12Q\n\x0eRequestWeights\x12 .parameter_server.WeightsRequest\x1a\x1d.parameter_server.ModelUpdate\x12Q\n\nWakeWorker\x12\x1d.parameter_server.GoodMorning\x1a$.parameter_server.WorkerRegistrationb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -33,10 +33,16 @@ if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
   _globals['_WEIGHTRESPONSE']._serialized_start=33
   _globals['_WEIGHTRESPONSE']._serialized_end=66
-  _globals['_LAYERGRADIENT']._serialized_start=68
-  _globals['_LAYERGRADIENT']._serialized_end=112
-  _globals['_MODELUPDATE']._serialized_start=114
-  _globals['_MODELUPDATE']._serialized_end=176
-  _globals['_WEIGHTSMANAGER']._serialized_start=178
-  _globals['_WEIGHTSMANAGER']._serialized_end=276
+  _globals['_WEIGHTSREQUEST']._serialized_start=68
+  _globals['_WEIGHTSREQUEST']._serialized_end=103
+  _globals['_LAYERGRADIENT']._serialized_start=105
+  _globals['_LAYERGRADIENT']._serialized_end=149
+  _globals['_MODELUPDATE']._serialized_start=151
+  _globals['_MODELUPDATE']._serialized_end=213
+  _globals['_GOODMORNING']._serialized_start=215
+  _globals['_GOODMORNING']._serialized_end=228
+  _globals['_WORKERREGISTRATION']._serialized_start=230
+  _globals['_WORKERREGISTRATION']._serialized_end=269
+  _globals['_WEIGHTSMANAGER']._serialized_start=272
+  _globals['_WEIGHTSMANAGER']._serialized_end=536
 # @@protoc_insertion_point(module_scope)

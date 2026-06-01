@@ -3,3 +3,5 @@ BaseballPred/dataset/
 *.pkl
 *.pth
 *.safetensors
+**/client_env/
+**/__pycache__/

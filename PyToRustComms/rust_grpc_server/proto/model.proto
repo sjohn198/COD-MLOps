@@ -3,10 +3,16 @@ package parameter_server;
 
 service WeightsManager {
     rpc UpdateWeights (ModelUpdate) returns (WeightResponse);
+    rpc RequestWeights (WeightsRequest) returns (ModelUpdate);
+    rpc WakeWorker (GoodMorning) returns (WorkerRegistration);
 }
 
 message WeightResponse {
     bool success = 1;
+}
+
+message WeightsRequest {
+    int32 worker_id = 1;
 }
 
 message LayerGradient {
@@ -16,4 +22,10 @@ message LayerGradient {
 
 message ModelUpdate {
     repeated LayerGradient layers = 1;
+}
+
+message GoodMorning {}
+
+message WorkerRegistration {
+    int32 worker_id = 1;
 }

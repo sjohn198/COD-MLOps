@@ -1,0 +1,24 @@
+services:
+  server:
+    build:
+      context: ./rust_grpc_server
+      dockerfile: Dockerfile
+    ports:
+      - "50051:50051"
+    networks:
+      - grpc_net
+  
+  client:
+    build:
+      context: ./python_client
+      dockerfile: Dockerfile
+    environment:
+      - GRPC_SERVER_ADDRESS=server:50051
+    depends_on:
+      - server
+    networks:
+      - grpc_net
+
+networks:
+  grpc_net:
+    driver: bridge

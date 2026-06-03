@@ -16,7 +16,8 @@ pub mod parameter_server {
 }
 
 fn read_weights() -> Result<BTreeMap<String, Vec<f32>>, Box<dyn std::error::Error>> {
-    let file = File::open("../../BaseballPred/best_baseball_predictor.safetensors")?;
+    let file = File::open("/app/best_baseball_predictor.safetensors")
+                .or_else(|_| File::open("best_baseball_predictor.safetensors"))?;
     let buffer = unsafe { MmapOptions::new().map(&file)?};
     let tensors = SafeTensors::deserialize(&buffer)?;
 
@@ -128,7 +129,7 @@ impl WeightsManager for BaseballWeightsManager {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let weights = read_weights()?;
 
-    let addr = "[::1]:50051".parse()?;
+    let addr = "0.0.0.0:50051".parse()?;
     let manager = BaseballWeightsManager {
         weights: Arc::new(Mutex::new(weights)),
         num_conns: Arc::new(AtomicI32::new(0)),

@@ -88,7 +88,7 @@ impl WeightsManager for BaseballWeightsManager {
         let state = self.weights.lock().await;
         let mut response_layers = Vec::with_capacity(state.len());
 
-        for (i, (layer_name, weights)) in state.iter().enumerate() {
+        for (i, (_layer_name, weights)) in state.iter().enumerate() {
             let layer_id = i as i32;
 
             response_layers.push(LayerGradient {
@@ -102,7 +102,7 @@ impl WeightsManager for BaseballWeightsManager {
     }
     async fn wake_worker(
         &self,
-        request: Request<GoodMorning>
+        _request: Request<GoodMorning>
     ) -> Result<Response<WorkerRegistration>, Status> {
         println!("Num_conns: {:?}, max_conns: {:?}", self.num_conns, self.max_conns);
         let reply = if self.num_conns.load(Ordering::SeqCst) == self.max_conns {

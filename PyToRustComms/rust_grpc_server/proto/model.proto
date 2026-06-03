@@ -27,5 +27,6 @@ message ModelUpdate {
 message GoodMorning {}
 
 message WorkerRegistration {
-    int32 worker_id = 1;
+    bool success = 1;
+    int32 worker_id = 2;
 }

@@ -31,7 +31,9 @@ pub struct GoodMorning {}
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct WorkerRegistration {
-    #[prost(int32, tag = "1")]
+    #[prost(bool, tag = "1")]
+    pub success: bool,
+    #[prost(int32, tag = "2")]
     pub worker_id: i32,
 }
 /// Generated client implementations.

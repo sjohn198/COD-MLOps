@@ -45,10 +45,22 @@ fn extract_f32_vector(view: &TensorView) -> Result<Vec<f32>, String> {
     Ok(float_array)
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct BaseballWeightsManager {
     pub weights: Arc<Mutex<BTreeMap<String, Vec<f32>>>>,
-    pub num_conns: Arc<AtomicI32>
+    pub num_conns: Arc<AtomicI32>,
+    pub max_conns: i32
+}
+
+//can also look into the smart_default crate
+impl Default for BaseballWeightsManager {
+    fn default() -> Self {
+        Self {
+            weights: Default::default(),
+            num_conns: Default::default(),
+            max_conns: 5
+        }
+    }
 }
 
 #[tonic::async_trait]
@@ -92,11 +104,20 @@ impl WeightsManager for BaseballWeightsManager {
         &self,
         request: Request<GoodMorning>
     ) -> Result<Response<WorkerRegistration>, Status> {
-        let prev_num_conn = self.num_conns.fetch_add(1, Ordering::SeqCst);
+        println!("Num_conns: {:?}, max_conns: {:?}", self.num_conns, self.max_conns);
+        let reply = if self.num_conns.load(Ordering::SeqCst) == self.max_conns {
+            WorkerRegistration {
+                success: false,
+                worker_id: -1
+            }
+        } else {
+            let prev_num_conn = self.num_conns.fetch_add(1, Ordering::SeqCst);
 
-        let worker_id = prev_num_conn; //may want to make this pnc + 1
-        let reply = WorkerRegistration {
-            worker_id: worker_id
+            let worker_id = prev_num_conn; //may want to make this pnc + 1
+            WorkerRegistration {
+                success: true,
+                worker_id: worker_id
+            }
         };
         Ok(Response::new(reply))
         //TODO: will also need a worker deregistration sort of thing once a work is done w all training
@@ -110,7 +131,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr = "[::1]:50051".parse()?;
     let manager = BaseballWeightsManager {
         weights: Arc::new(Mutex::new(weights)),
-        num_conns: Arc::new(AtomicI32::new(0))
+        num_conns: Arc::new(AtomicI32::new(0)),
+        ..Default::default()
     };
 
     println!("gRPC Server listening on {}", addr);

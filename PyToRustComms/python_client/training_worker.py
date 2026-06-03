@@ -14,7 +14,17 @@ def run():
 
         worker_reg = stub.WakeWorker(init_request)
 
-        worker_id = worker_reg.worker_id
+        worker_id = None
+        
+        print(worker_reg.success)
+        print(worker_reg.worker_id)
+        print(worker_reg)
+
+        if worker_reg.success:
+            worker_id = worker_reg.worker_id
+        else:
+            print("too many workers assigned")
+            return
 
         print(f"Assigned Worker ID: {worker_id}")
 

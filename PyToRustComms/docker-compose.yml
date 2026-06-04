@@ -16,6 +16,8 @@ services:
       - GRPC_SERVER_ADDRESS=server:50051
     depends_on:
       - server
+    volumes:
+      - ../BaseballPred/dataset:/app/data:ro
     networks:
       - grpc_net
 

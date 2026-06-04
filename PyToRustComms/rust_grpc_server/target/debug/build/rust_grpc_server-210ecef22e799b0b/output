@@ -1,2 +1,0 @@
-cargo:rerun-if-changed=proto/model.proto
-cargo:rerun-if-changed=proto

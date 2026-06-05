@@ -143,80 +143,80 @@ if __name__ == "__main__":
     optimizer = optim.Adam(model.parameters(), lr=0.01)
     print("test")
 
-    # epochs = 10
-    # best_roc_auc = 0.0
+    epochs = 10
+    best_roc_auc = 0.0
 
-    # for epoch in range(epochs):
-    #     #just puts it in training mode
-    #     model.train()
-    #     running_loss = 0.0
+    for epoch in range(epochs):
+        #just puts it in training mode
+        model.train()
+        running_loss = 0.0
         
-    #     train_pbar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{epochs} [Train]")
+        train_pbar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{epochs} [Train]")
 
-    #     for batch_idx, (features, labels) in enumerate(train_pbar):
-    #         features, labels = features.to(device), labels.to(device)
-    #         #clears revious gradients
-    #         optimizer.zero_grad()
+        for batch_idx, (features, labels) in enumerate(train_pbar):
+            features, labels = features.to(device), labels.to(device)
+            #clears revious gradients
+            optimizer.zero_grad()
 
-    #         #forward pass
-    #         predictions = model(features)
+            #forward pass
+            predictions = model(features)
 
-    #         #calculate how wrong forward pass was
-    #         loss = criterion(predictions, labels)
+            #calculate how wrong forward pass was
+            loss = criterion(predictions, labels)
 
-    #         #backprop - i.e. update the gradients
-    #         loss.backward()
+            #backprop - i.e. update the gradients
+            loss.backward()
 
-    #         #update paremters using gradients according to Adam
-    #         optimizer.step()
+            #update paremters using gradients according to Adam
+            optimizer.step()
 
-    #         running_loss += loss.item()
+            running_loss += loss.item()
 
-    #         train_pbar.set_postfix({"Loss": f"{running_loss/(batch_idx+1):.4f}"})
+            train_pbar.set_postfix({"Loss": f"{running_loss/(batch_idx+1):.4f}"})
 
 
-    #     print(f"Epoch {epoch+1}/{epochs} | Train Loss: {running_loss/(batch_idx+1):.4f}")
+        print(f"Epoch {epoch+1}/{epochs} | Train Loss: {running_loss/(batch_idx+1):.4f}")
 
-    #     model.eval()
-    #     val_loss = 0.0
+        model.eval()
+        val_loss = 0.0
 
-    #     all_targets = []
-    #     all_predictions = []
-    #     all_probabilities = []
+        all_targets = []
+        all_predictions = []
+        all_probabilities = []
 
-    #     val_pbar = tqdm(validate_loader, desc=f"Epoch {epoch+1}/{epochs} [Val]")
+        val_pbar = tqdm(validate_loader, desc=f"Epoch {epoch+1}/{epochs} [Val]")
 
-    #     #no need to track graidents during validation
-    #     with torch.no_grad():
-    #         for batch_idx, (val_features, val_labels) in enumerate(val_pbar):
-    #             val_features, val_labels = val_features.to(device), val_labels.to(device)
-    #             val_preds = model(val_features)
-    #             loss = criterion(val_preds, val_labels)
-    #             val_loss += loss.item()
+        #no need to track graidents during validation
+        with torch.no_grad():
+            for batch_idx, (val_features, val_labels) in enumerate(val_pbar):
+                val_features, val_labels = val_features.to(device), val_labels.to(device)
+                val_preds = model(val_features)
+                loss = criterion(val_preds, val_labels)
+                val_loss += loss.item()
 
-    #             #convert logits to probabilites for analysis
-    #             probabilities = F.softmax(val_preds, dim=1)[:, 1]
+                #convert logits to probabilites for analysis
+                probabilities = F.softmax(val_preds, dim=1)[:, 1]
 
-    #             #convert probs to hard predictions
-    #             predicted_classes = torch.argmax(val_preds, dim=1)
+                #convert probs to hard predictions
+                predicted_classes = torch.argmax(val_preds, dim=1)
 
-    #             all_targets.extend(val_labels.cpu().numpy())
-    #             all_probabilities.extend(probabilities.cpu().numpy())
-    #             all_predictions.extend(predicted_classes.cpu().numpy())
+                all_targets.extend(val_labels.cpu().numpy())
+                all_probabilities.extend(probabilities.cpu().numpy())
+                all_predictions.extend(predicted_classes.cpu().numpy())
 
-    #             val_pbar.set_postfix({"Val Loss": f"{val_loss/(batch_idx+1):.4f}"})
+                val_pbar.set_postfix({"Val Loss": f"{val_loss/(batch_idx+1):.4f}"})
 
-    #     avg_val_loss = val_loss / (batch_idx + 1)
-    #     accuracy = accuracy_score(all_targets, all_predictions)
-    #     precision, recall, f1, _ = precision_recall_fscore_support(all_targets, all_predictions, average='binary', zero_division=0)
-    #     roc_auc = roc_auc_score(all_targets, all_probabilities)
-    #     print(f"\n--- Epoch {epoch+1} Validation ---")
-    #     print(f"Loss:      {avg_val_loss:.4f}")
-    #     print(f"Accuracy:  {accuracy:.4f}")
-    #     print(f"Precision: {precision:.4f} | Recall: {recall:.4f} | F1: {f1:.4f}")
-    #     print(f"ROC-AUC:   {roc_auc:.4f}\n")
+        avg_val_loss = val_loss / (batch_idx + 1)
+        accuracy = accuracy_score(all_targets, all_predictions)
+        precision, recall, f1, _ = precision_recall_fscore_support(all_targets, all_predictions, average='binary', zero_division=0)
+        roc_auc = roc_auc_score(all_targets, all_probabilities)
+        print(f"\n--- Epoch {epoch+1} Validation ---")
+        print(f"Loss:      {avg_val_loss:.4f}")
+        print(f"Accuracy:  {accuracy:.4f}")
+        print(f"Precision: {precision:.4f} | Recall: {recall:.4f} | F1: {f1:.4f}")
+        print(f"ROC-AUC:   {roc_auc:.4f}\n")
 
-    #     if roc_auc > best_roc_auc:
-    #         best_roc_auc = roc_auc
-    #         print(f"New best model found on Epoch {epoch + 1}")
-    #         save_file(model.state_dict(), "best_baseball_predictor.safetensors")
+        if roc_auc > best_roc_auc:
+            best_roc_auc = roc_auc
+            print(f"New best model found on Epoch {epoch + 1}")
+            save_file(model.state_dict(), "best_baseball_predictor.safetensors")

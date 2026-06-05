@@ -37,11 +37,11 @@ if __name__ == "__main__":
                     test_files.append(root + "/" + f)
                 else:
                     train_files.append(root + "/" + f)
-        with open("test_files.json", "w") as f1:
+        with open("./data/test_files.json", "w") as f1:
             json.dump(test_files, f1)
-        with open("train_files.json", "w") as f2:
+        with open("./data/train_files.json", "w") as f2:
             json.dump(train_files, f2)
-        with open("validate_files.json", "w") as f3:
+        with open("./data/validate_files.json", "w") as f3:
             json.dump(validate_files, f3)
 
     scaler_path = "./data/baseball_scaler.pkl"

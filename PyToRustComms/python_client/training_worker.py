@@ -7,6 +7,9 @@ import os
 import pandas as pd
 import joblib
 from sklearn.preprocessing import StandardScaler
+from baseball_iterable_dataset import BaseballData
+import json
+from torch.utils.data import DataLoader
 
 #command to compile proto: python3 -m grpc_tools.protoc -I ../rust_grpc_server/proto --python_out=. --grpc_python_out=. ../rust_grpc_server/proto/model.proto
 
@@ -68,17 +71,50 @@ def run():
             scaler = joblib.load("./data/baseball_scaler.pkl")
 
             print("scaler loaded properly")
-        # gradients_list = [0.01, -0.05, 0.12, 0.05]
-        # l1 = model_pb2.LayerGradient(id=0, weights=gradients_list)
-        # gradients_list2 = [0.02, -0.07, 0.21, 0.08]
-        # l2 = model_pb2.LayerGradient(id=1, weights=gradients_list2)
-        # layers = [l1, l2]
-        # request = model_pb2.ModelUpdate(layers=layers)
 
-        # print("Sending gradients to Rust Server...")
-        # response = stub.UpdateWeights(request)
+            try:
+                with open("./data/train_files.json", "r") as f1:
+                    train_files = list(json.load(f1))
+                with open("./data/test_files.json", "r") as f2:
+                    test_files = list(json.load(f2))
+                with open("./data/validate_files.json", "r") as f3:
+                    validate_files = list(json.load(f3))
+            except FileNotFoundError:
+                print("data files not intact")
+                return
+            
+            train_dataset = BaseballData(train_files, scaler, worker_id, 4)
+            test_dataset = BaseballData(test_files, scaler, worker_id, 4)
+            validate_dataset = BaseballData(validate_files, scaler, worker_id, 4)
 
-        # print(f"Rust server responded. Success: {response.success}")
+            train_loader = DataLoader(
+                dataset=train_dataset,
+                batch_size=512
+            )
+
+            test_loader = DataLoader(
+                dataset=test_dataset,
+                batch_size=512
+            )
+
+            validate_loader = DataLoader(
+                dataset=validate_dataset,
+                batch_size=512
+            )
+
+            if torch.cuda.is_available():
+                device = torch.device("cuda")
+            elif torch.backends.mps.is_available():
+                device = torch.device("mps")
+            else:
+                device = torch.device("cpu")
+
+            model.to(device)
+
+            #gotta calculate adam and loss in the rust file
+
+            
+            print(f"Device selected: {device}")
 
 if __name__ == '__main__':
     run()

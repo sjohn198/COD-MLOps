@@ -5,6 +5,8 @@ from win_predictor import WinPredictor
 import torch
 import os
 import pandas as pd
+import joblib
+from sklearn.preprocessing import StandardScaler
 
 #command to compile proto: python3 -m grpc_tools.protoc -I ../rust_grpc_server/proto --python_out=. --grpc_python_out=. ../rust_grpc_server/proto/model.proto
 
@@ -63,12 +65,9 @@ def run():
 
             print(f"Rust server responded. Success: {response.success}")
 
-            try:
-                df = pd.read_parquet("./data/year=2008/statcast_2008-03-22_to_2008-03-28.parquet")
-            except FileNotFoundError:
-                df = pd.read_parquet("../BaseballPred/dataset/year=2008/statcast_2008-03-22_to_2008-03-28.parquet")
-        
-            print(df)
+            scaler = joblib.load("./data/baseball_scaler.pkl")
+
+            print("scaler loaded properly")
         # gradients_list = [0.01, -0.05, 0.12, 0.05]
         # l1 = model_pb2.LayerGradient(id=0, weights=gradients_list)
         # gradients_list2 = [0.02, -0.07, 0.21, 0.08]

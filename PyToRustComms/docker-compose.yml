@@ -8,6 +8,16 @@ services:
     networks:
       - grpc_net
   
+  scaler_builder:
+    build:
+      context: ./python_client
+      dockerfile: Dockerfile
+    command: ["python3", "build_scaler.py"]
+    volumes:
+      - ../BaseballPred/dataset:/app/data
+    networks:
+      - grpc_net
+
   client:
     build:
       context: ./python_client
@@ -15,11 +25,16 @@ services:
     environment:
       - GRPC_SERVER_ADDRESS=server:50051
     depends_on:
-      - server
+      server:
+        condition: service_started
+      scaler_builder:
+        condition: service_completed_successfully
     volumes:
-      - ../BaseballPred/dataset:/app/data:ro
+      - ../BaseballPred/dataset:/app/data
     networks:
       - grpc_net
+    deploy:
+      replicas: 4
 
 networks:
   grpc_net:

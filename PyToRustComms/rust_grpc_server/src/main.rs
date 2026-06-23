@@ -1,66 +1,151 @@
 use tonic::{transport::Server, Request, Response, Status};
 use parameter_server::weights_manager_server::{WeightsManager, WeightsManagerServer};
 use parameter_server::{WeightResponse, WeightsRequest, LayerGradient, ModelUpdate, GoodMorning, WorkerRegistration};
-use memmap2::MmapOptions;
-use safetensors::tensor::TensorView;
-use safetensors::SafeTensors;
+//use memmap2::MmapOptions;
+//use safetensors::tensor::TensorView;
+//use safetensors::SafeTensors;
 use std::fs::File;
-use std::collections::BTreeMap;
+use std::collections::{ HashMap };
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use std::sync::atomic::{AtomicI32, Ordering};
+use candle_core::{Device, Tensor, Result};
+use serde::{Serialize, Deserialize};
+use std::path::Path;
+use std::io::BufReader;
 
 
 pub mod parameter_server {
     tonic::include_proto!("parameter_server");
 }
 
-fn read_weights() -> Result<BTreeMap<String, Vec<f32>>, Box<dyn std::error::Error>> {
-    let file = File::open("/app/best_baseball_predictor.safetensors")
-                .or_else(|_| File::open("best_baseball_predictor.safetensors"))?;
-    let buffer = unsafe { MmapOptions::new().map(&file)?};
-    let tensors = SafeTensors::deserialize(&buffer)?;
+/*we only need this if we're finetuning - which for now we're not */
+// fn read_weights() -> std::result::Result<BTreeMap<String, Vec<f32>>, Box<dyn std::error::Error>> {
+//     let file = File::open("/app/best_baseball_predictor.safetensors")
+//                 .or_else(|_| File::open("best_baseball_predictor.safetensors"))?;
+//     let buffer = unsafe { MmapOptions::new().map(&file)?};
+//     let tensors = SafeTensors::deserialize(&buffer)?;
 
-    let mut weights_map: BTreeMap<String, Vec<f32>> = BTreeMap::new();
+//     let mut weights_map: BTreeMap<String, Vec<f32>> = BTreeMap::new();
 
-    for (layer_name, tensor_view) in tensors.tensors() {
-        println!("Layer: {:?}, Shape: {:?}", layer_name, tensor_view.shape());
-        let weight_array = extract_f32_vector(&tensor_view)?;
-        weights_map.insert(layer_name.to_string(), weight_array);
-    }
-    Ok(weights_map)
+//     for (layer_name, tensor_view) in tensors.tensors() {
+//         println!("Layer: {:?}, Shape: {:?}", layer_name, tensor_view.shape());
+//         let weight_array = extract_f32_vector(&tensor_view)?;
+//         weights_map.insert(layer_name.to_string(), weight_array);
+//     }
+//     Ok(weights_map)
+// }
+
+// fn extract_f32_vector(view: &TensorView) -> std::result::Result<Vec<f32>, String> {
+//     if view.dtype() != safetensors::Dtype::F32 {
+//         return Err(format!("Expected F32, got {:?}", view.dtype()));
+//     }
+
+//     let raw_bytes: &[u8] = view.data();
+//     let mut float_array: Vec<f32> = Vec::with_capacity(raw_bytes.len() / 4);
+
+//     for chunk in raw_bytes.chunks_exact(4) {
+//         let val: f32 = f32::from_le_bytes(chunk.try_into().unwrap());
+//         float_array.push(val);
+//     }
+//     Ok(float_array)
+// }
+
+fn calculate_moments(
+    first_moment: &Tensor, 
+    second_moment: &Tensor, 
+    first_decay_rate: f32,
+    second_decay_rate: f32,
+    gradients: &Tensor,
+    iteration: i32) ->  Result<(Tensor, Tensor)>{
+        let decayed_gradients: Tensor = gradients.affine((1.0 - first_decay_rate) as f64, 0.0)?;
+        let decayed_first_moment: Tensor = first_moment.affine(first_decay_rate as f64, 0.0)?;
+        let new_first_moment: Tensor = (decayed_first_moment + &decayed_gradients)?;
+
+        let squared_gradients: Tensor = (gradients * gradients)?;
+        let decayed_squared_gradients: Tensor = squared_gradients.affine((1.0 - second_decay_rate) as f64, 0.0)?;
+        let decayed_second_moment: Tensor = second_moment.affine(second_decay_rate as f64, 0.0)?;
+        let new_second_moment: Tensor = (decayed_second_moment + &decayed_squared_gradients)?;
+
+        let bias_corrected_first_moment: Tensor = new_first_moment.affine((1.0 / (1.0 - first_decay_rate.powi(iteration))) as f64, 0.0)?;
+        let bias_corrected_second_moment: Tensor = new_second_moment.affine((1.0 / (1.0 - second_decay_rate.powi(iteration))) as f64, 0.0)?;
+
+        Ok((bias_corrected_first_moment, bias_corrected_second_moment))
+}   
+
+
+#[derive(Serialize, Deserialize, Default, Debug)]
+#[serde(transparent)]
+pub struct NetworkMap {
+    pub layers: Vec<(i32, i32)>
 }
 
-fn extract_f32_vector(view: &TensorView) -> Result<Vec<f32>, String> {
-    if view.dtype() != safetensors::Dtype::F32 {
-        return Err(format!("Expected F32, got {:?}", view.dtype()));
-    }
+fn read_config_from_file<P: AsRef<Path>>(path: P) -> std::result::Result<NetworkMap, Box<dyn std::error::Error>> {
+    let file: File = File::open(path)?;
+    let buffer: BufReader<File> = BufReader::new(file);
+    let network_map: NetworkMap = serde_json::from_reader(buffer)?;
 
-    let raw_bytes: &[u8] = view.data();
-    let mut float_array: Vec<f32> = Vec::with_capacity(raw_bytes.len() / 4);
-
-    for chunk in raw_bytes.chunks_exact(4) {
-        let val: f32 = f32::from_le_bytes(chunk.try_into().unwrap());
-        float_array.push(val);
-    }
-    Ok(float_array)
+    Ok(network_map)
 }
 
 #[derive(Debug)]
 pub struct BaseballWeightsManager {
-    pub weights: Arc<Mutex<BTreeMap<String, Vec<f32>>>>,
+    pub weights: Arc<Mutex<Vec<Tensor>>>,
+    pub device: Device,
+    pub network_map: NetworkMap,
     pub num_conns: Arc<AtomicI32>,
-    pub max_conns: i32
+    pub max_conns: i32,
+    pub first_moment_map: HashMap<usize, Tensor>,
+    pub second_moment_map: HashMap<usize, Tensor>,
+    pub learning_rate: f32,
+    pub iteration: AtomicI32
 }
 
-//can also look into the smart_default crate
-impl Default for BaseballWeightsManager {
-    fn default() -> Self {
-        Self {
-            weights: Default::default(),
-            num_conns: Default::default(),
-            max_conns: 5
+impl BaseballWeightsManager {
+    fn new(
+        network_map: NetworkMap,
+        dev: Device,
+        learning_rate: f32
+    ) -> Result<Self> {
+        let mut weight: Vec<Tensor> = Vec::new();
+
+        for i in 0..network_map.layers.len(){
+            let shape = (network_map.layers[i].0 as usize, network_map.layers[i].1 as usize);
+
+            let fan_in = shape.1 as f64;
+            let kaiming_std_dev = (2.0 / fan_in).sqrt() as f32;
+            let layer_init: Tensor = Tensor::randn(
+                0.0f32,
+                kaiming_std_dev,
+                shape,
+                &dev
+            )?;
+            weight.push(layer_init);
         }
+
+        let network_info = &network_map.layers;
+        let mut first_moment_map: HashMap<usize, Tensor> = HashMap::new();
+        let mut second_moment_map: HashMap<usize, Tensor> = HashMap::new();
+        for i in 0..network_info.len() {
+            let shape: (usize, usize) = (network_info[i].0 as usize, network_info[i].1 as usize);
+            let blank_moment = Tensor::zeros(shape, candle_core::DType::F32, &dev).expect("Failed to initialize blank moment");
+            first_moment_map.insert(i, blank_moment.clone());
+            second_moment_map.insert(i, blank_moment.clone());
+        }
+
+        Ok(
+            Self {
+                weights: Arc::new(Mutex::new(weight)),
+                device: dev,
+                network_map,
+                num_conns: Arc::new(AtomicI32::new(0)),
+                max_conns: 5,
+                first_moment_map,
+                second_moment_map,
+                learning_rate,
+                iteration: AtomicI32::new(1),
+            }
+        )
     }
 }
 
@@ -69,12 +154,49 @@ impl WeightsManager for BaseballWeightsManager {
     async fn update_weights(
         &self,
         request: Request<ModelUpdate>
-    ) -> Result<Response<WeightResponse>, Status> {
+    ) -> std::result::Result<Response<WeightResponse>, Status> {
         let req_data = request.into_inner();
+        let network_info = &self.network_map.layers;
+        println!("Pre layer loop");
         for layer in req_data.layers {
+            let mut i: usize = layer.id as usize;
+            if i % 2 == 1 {
+                continue;
+            } else {
+                i /= 2;
+            }
+            let shape = (network_info[i].0 as usize, network_info[i].1 as usize);
             println!("Layer id: {}", layer.id);
             println!("Receiced {} gradients.", layer.weights.len());
+            println!("Shape dim 1: {}, Shape dim 2: {}", network_info[i].0, network_info[i].1);
+
+            let flat_tensor: Tensor = Tensor::from_vec(layer.weights, shape.0 * shape.1, &self.device).map_err(|e| Status::internal(e.to_string()))?;
+            let gradients: Tensor = flat_tensor.reshape(shape).map_err(|e| Status::internal(e.to_string()))?;
+
+            let first_decay_rate: f32 = 0.9;
+            let second_decay_rate: f32 = 0.999;
+
+            let current_iter = self.iteration.load(Ordering::SeqCst);
+            let (temp_fm, temp_sm) = calculate_moments(
+                self.first_moment_map.get(&i).unwrap(),
+                self.second_moment_map.get(&i).unwrap(),
+                first_decay_rate,
+                second_decay_rate,
+                &gradients,
+                current_iter
+            ).map_err(|e| Status::internal(e.to_string()))?;
+            let sqrt_sm: Tensor = temp_sm.sqrt().map_err(|e| Status::internal(e.to_string()))?;
+            let epsilon: f32 = 1e-8;
+            let denom: Tensor = sqrt_sm.affine(1.0, epsilon as f64).map_err(|e| Status::internal(e.to_string()))?;
+            let frac: Tensor = (temp_fm / &denom).map_err(|e| Status::internal(e.to_string()))?;
+            let adjustment: Tensor = frac.affine(self.learning_rate as f64, 0.0).map_err(|e| Status::internal(e.to_string()))?; 
+            let mut state = self.weights.lock().await;
+            let new_weights: Tensor = (&state[i] - &adjustment).map_err(|e| Status::internal(e.to_string()))?;
+            state[i] = new_weights;  
         }
+        println!("Post layer loop");
+        self.iteration.fetch_add(1, Ordering::SeqCst);
+        //convert layers to Tensor and pass to calculate moments. Also track moments
 
         let reply = WeightResponse { success: true };
         Ok(Response::new(reply))
@@ -82,19 +204,20 @@ impl WeightsManager for BaseballWeightsManager {
     async fn request_weights(
         &self,
         request: Request<WeightsRequest>
-    ) -> Result<Response<ModelUpdate>, Status> {
+    ) -> std::result::Result<Response<ModelUpdate>, Status> {
         let req_data = request.into_inner();
         println!("Worker id: {}", req_data.worker_id);
         
         let state = self.weights.lock().await;
         let mut response_layers = Vec::with_capacity(state.len());
 
-        for (i, (_layer_name, weights)) in state.iter().enumerate() {
-            let layer_id = i as i32;
-
+        for (i, layer) in state.iter().enumerate() {
+            let flat_tensor = layer.flatten_all().map_err(|e| Status::internal(e.to_string()))?;
+            let contiguous_tensor: Tensor = flat_tensor.contiguous().map_err(|e| Status::internal(e.to_string()))?;
+            let weight_vec: Vec<f32> = contiguous_tensor.to_vec1::<f32>().map_err(|e| Status::internal(e.to_string()))?;
             response_layers.push(LayerGradient {
-                id: layer_id,
-                weights: weights.clone()
+                id: i as i32,
+                weights: weight_vec.clone()
             })
         }
 
@@ -104,7 +227,7 @@ impl WeightsManager for BaseballWeightsManager {
     async fn wake_worker(
         &self,
         _request: Request<GoodMorning>
-    ) -> Result<Response<WorkerRegistration>, Status> {
+    ) -> std::result::Result<Response<WorkerRegistration>, Status> {
         println!("Num_conns: {:?}, max_conns: {:?}", self.num_conns, self.max_conns);
         let reply = if self.num_conns.load(Ordering::SeqCst) == self.max_conns {
             WorkerRegistration {
@@ -126,15 +249,16 @@ impl WeightsManager for BaseballWeightsManager {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let weights = read_weights()?;
+async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
+    let network_map = read_config_from_file("network_map.json")?;
+    let dev: Device = Device::new_metal(0).unwrap_or(Device::Cpu);
 
     let addr = "0.0.0.0:50051".parse()?;
-    let manager = BaseballWeightsManager {
-        weights: Arc::new(Mutex::new(weights)),
-        num_conns: Arc::new(AtomicI32::new(0)),
-        ..Default::default()
-    };
+    let manager = BaseballWeightsManager::new(
+        network_map,
+        dev,
+        0.001
+    )?;
 
     println!("gRPC Server listening on {}", addr);
 

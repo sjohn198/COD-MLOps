@@ -1,5 +1,6 @@
 **/venv/
 BaseballPred/dataset/
+PyToRustComms/dataset/
 *.pkl
 *.pth
 *.safetensors

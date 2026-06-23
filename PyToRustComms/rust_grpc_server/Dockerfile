@@ -17,6 +17,7 @@ WORKDIR /app
 COPY --from=builder /usr/app/src/target/release/rust_grpc_server /usr/local/bin/rust_grpc_server
 
 COPY best_baseball_predictor.safetensors /app/best_baseball_predictor.safetensors
+COPY network_map.json /app/network_map.json
 
 EXPOSE 50051
 

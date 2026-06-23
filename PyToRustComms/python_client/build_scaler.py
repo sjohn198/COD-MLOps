@@ -24,19 +24,21 @@ if __name__ == "__main__":
     test_files = []
 
     if os.path.exists("train_files.json") and os.path.exists("validate_files.json") and os.path.exists("test_files.json"):
+        print("the files exist")
         train_files = json.load("train_files.json")
         validate_files = json.load("validate_files.json")
         test_files = json.load("test_files.json")
     else:
-        for i, (root, dirs, files) in enumerate(os.walk("./dataset")):
+        for i, (root, dirs, files) in enumerate(os.walk("./data")):
             #sort by year to avoid temporal leakeage
             for f in files:
-                if "year=2024" in root:
-                    validate_files.append(root + "/" + f)
-                elif "year=2025" in root:
-                    test_files.append(root + "/" + f)
-                else:
-                    train_files.append(root + "/" + f)
+                if f.endswith("parquet"):
+                    if "year=2024" in root:
+                        validate_files.append(root + "/" + f)
+                    elif "year=2025" in root:
+                        test_files.append(root + "/" + f)
+                    else:
+                        train_files.append(root + "/" + f)
         with open("./data/test_files.json", "w") as f1:
             json.dump(test_files, f1)
         with open("./data/train_files.json", "w") as f2:
@@ -44,10 +46,5 @@ if __name__ == "__main__":
         with open("./data/validate_files.json", "w") as f3:
             json.dump(validate_files, f3)
 
-    scaler_path = "./data/baseball_scaler.pkl"
-    if not os.path.exists(scaler_path):
-        scaler = create_global_scaler(train_files)
-
-    print("sclaer built")
-
-    
+    scaler = create_global_scaler(train_files)
+    print("scaler built")

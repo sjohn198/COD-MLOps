@@ -18,14 +18,15 @@ class BaseballData(IterableDataset):
 
     def __iter__(self):
         #globally shuffle to emulate the shuffling of a standard tensordataset
-        random.shuffle(self.files)
+        self.files.sort()
 
         per_worker = int(math.ceil(len(self.files) / self.num_workers))
 
-        start_idx = self.worker_id * per_worker
-        end_idx = min((self.worker_id + 1) * per_worker, len(self.files))
+        start_idx = self.worker * per_worker
+        end_idx = min((self.worker + 1) * per_worker, len(self.files))
         worker_files = self.files[start_idx:end_idx]
 
+        random.shuffle(self.files)
 
         for f in worker_files:
             df = pd.read_parquet(f)

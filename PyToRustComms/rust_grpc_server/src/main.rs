@@ -7,7 +7,7 @@ use parameter_server::{WeightResponse, WeightsRequest, LayerGradient, ModelUpdat
 use std::fs::File;
 use std::collections::{ HashMap };
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::{ Mutex, MutexGuard };
 use std::sync::atomic::{AtomicI32, Ordering};
 use candle_core::{Device, Tensor, Result};
 use serde::{Serialize, Deserialize};
@@ -110,10 +110,10 @@ impl BaseballWeightsManager {
         let mut weight: Vec<Tensor> = Vec::new();
 
         for i in 0..network_map.layers.len(){
-            let shape = (network_map.layers[i].0 as usize, network_map.layers[i].1 as usize);
+            let shape: (usize, usize) = (network_map.layers[i].0 as usize, network_map.layers[i].1 as usize);
 
-            let fan_in = shape.1 as f64;
-            let kaiming_std_dev = (2.0 / fan_in).sqrt() as f32;
+            let fan_in: f64 = shape.1 as f64;
+            let kaiming_std_dev: f32 = (2.0 / fan_in).sqrt() as f32;
             let layer_init: Tensor = Tensor::randn(
                 0.0f32,
                 kaiming_std_dev,
@@ -123,12 +123,12 @@ impl BaseballWeightsManager {
             weight.push(layer_init);
         }
 
-        let network_info = &network_map.layers;
+        let network_info: &Vec<(i32, i32)> = &network_map.layers;
         let mut first_moment_map: HashMap<usize, Tensor> = HashMap::new();
         let mut second_moment_map: HashMap<usize, Tensor> = HashMap::new();
         for i in 0..network_info.len() {
             let shape: (usize, usize) = (network_info[i].0 as usize, network_info[i].1 as usize);
-            let blank_moment = Tensor::zeros(shape, candle_core::DType::F32, &dev).expect("Failed to initialize blank moment");
+            let blank_moment: Tensor = Tensor::zeros(shape, candle_core::DType::F32, &dev).expect("Failed to initialize blank moment");
             first_moment_map.insert(i, blank_moment.clone());
             second_moment_map.insert(i, blank_moment.clone());
         }
@@ -155,8 +155,8 @@ impl WeightsManager for BaseballWeightsManager {
         &self,
         request: Request<ModelUpdate>
     ) -> std::result::Result<Response<WeightResponse>, Status> {
-        let req_data = request.into_inner();
-        let network_info = &self.network_map.layers;
+        let req_data: ModelUpdate = request.into_inner();
+        let network_info: &Vec<(i32, i32)> = &self.network_map.layers;
         println!("Pre layer loop");
         for layer in req_data.layers {
             let mut i: usize = layer.id as usize;
@@ -165,7 +165,7 @@ impl WeightsManager for BaseballWeightsManager {
             } else {
                 i /= 2;
             }
-            let shape = (network_info[i].0 as usize, network_info[i].1 as usize);
+            let shape: (usize, usize) = (network_info[i].0 as usize, network_info[i].1 as usize);
             println!("Layer id: {}", layer.id);
             println!("Receiced {} gradients.", layer.weights.len());
             println!("Shape dim 1: {}, Shape dim 2: {}", network_info[i].0, network_info[i].1);
@@ -176,8 +176,8 @@ impl WeightsManager for BaseballWeightsManager {
             let first_decay_rate: f32 = 0.9;
             let second_decay_rate: f32 = 0.999;
 
-            let current_iter = self.iteration.load(Ordering::SeqCst);
-            let (temp_fm, temp_sm) = calculate_moments(
+            let current_iter: i32 = self.iteration.load(Ordering::SeqCst);
+            let (temp_fm, temp_sm): (Tensor, Tensor) = calculate_moments(
                 self.first_moment_map.get(&i).unwrap(),
                 self.second_moment_map.get(&i).unwrap(),
                 first_decay_rate,
@@ -185,43 +185,44 @@ impl WeightsManager for BaseballWeightsManager {
                 &gradients,
                 current_iter
             ).map_err(|e| Status::internal(e.to_string()))?;
-            let sqrt_sm: Tensor = temp_sm.sqrt().map_err(|e| Status::internal(e.to_string()))?;
+            let sqrt_sm: Tensor = temp_sm.sqrt().map_err(|e: candle_core::Error| Status::internal(e.to_string()))?;
             let epsilon: f32 = 1e-8;
-            let denom: Tensor = sqrt_sm.affine(1.0, epsilon as f64).map_err(|e| Status::internal(e.to_string()))?;
+            let denom: Tensor = sqrt_sm.affine(1.0, epsilon as f64).map_err(|e: candle_core::Error| Status::internal(e.to_string()))?;
             let frac: Tensor = (temp_fm / &denom).map_err(|e| Status::internal(e.to_string()))?;
             let adjustment: Tensor = frac.affine(self.learning_rate as f64, 0.0).map_err(|e| Status::internal(e.to_string()))?; 
-            let mut state = self.weights.lock().await;
-            let new_weights: Tensor = (&state[i] - &adjustment).map_err(|e| Status::internal(e.to_string()))?;
+            let mut state: MutexGuard<Vec<Tensor>> = self.weights.lock().await;
+            let new_weights: Tensor = (&state[i] - &adjustment).map_err(|e: candle_core::Error| Status::internal(e.to_string()))?;
             state[i] = new_weights;  
         }
         println!("Post layer loop");
         self.iteration.fetch_add(1, Ordering::SeqCst);
         //convert layers to Tensor and pass to calculate moments. Also track moments
 
-        let reply = WeightResponse { success: true };
+        let reply: WeightResponse = WeightResponse { success: true };
         Ok(Response::new(reply))
     }
     async fn request_weights(
         &self,
         request: Request<WeightsRequest>
     ) -> std::result::Result<Response<ModelUpdate>, Status> {
-        let req_data = request.into_inner();
+        let req_data: WeightsRequest = request.into_inner();
         println!("Worker id: {}", req_data.worker_id);
         
-        let state = self.weights.lock().await;
-        let mut response_layers = Vec::with_capacity(state.len());
+        let state: MutexGuard<Vec<Tensor>> = self.weights.lock().await;
+        let mut response_layers: Vec<LayerGradient> = Vec::with_capacity(state.len());
 
         for (i, layer) in state.iter().enumerate() {
-            let flat_tensor = layer.flatten_all().map_err(|e| Status::internal(e.to_string()))?;
-            let contiguous_tensor: Tensor = flat_tensor.contiguous().map_err(|e| Status::internal(e.to_string()))?;
-            let weight_vec: Vec<f32> = contiguous_tensor.to_vec1::<f32>().map_err(|e| Status::internal(e.to_string()))?;
+            let layer: &Tensor = layer;
+            let flat_tensor: Tensor = layer.flatten_all().map_err(|e: candle_core::Error| Status::internal(e.to_string()))?;
+            let contiguous_tensor: Tensor = flat_tensor.contiguous().map_err(|e: candle_core::Error| Status::internal(e.to_string()))?;
+            let weight_vec: Vec<f32> = contiguous_tensor.to_vec1::<f32>().map_err(|e: candle_core::Error| Status::internal(e.to_string()))?;
             response_layers.push(LayerGradient {
                 id: i as i32,
                 weights: weight_vec.clone()
             })
         }
 
-        let reply = ModelUpdate { layers: response_layers };
+        let reply: ModelUpdate = ModelUpdate { layers: response_layers };
         Ok(Response::new(reply))
     }
     async fn wake_worker(
@@ -229,7 +230,7 @@ impl WeightsManager for BaseballWeightsManager {
         _request: Request<GoodMorning>
     ) -> std::result::Result<Response<WorkerRegistration>, Status> {
         println!("Num_conns: {:?}, max_conns: {:?}", self.num_conns, self.max_conns);
-        let reply = if self.num_conns.load(Ordering::SeqCst) == self.max_conns {
+        let reply: WorkerRegistration = if self.num_conns.load(Ordering::SeqCst) == self.max_conns {
             WorkerRegistration {
                 success: false,
                 worker_id: -1
@@ -250,11 +251,11 @@ impl WeightsManager for BaseballWeightsManager {
 
 #[tokio::main]
 async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
-    let network_map = read_config_from_file("network_map.json")?;
+    let network_map: NetworkMap = read_config_from_file("network_map.json")?;
     let dev: Device = Device::new_metal(0).unwrap_or(Device::Cpu);
 
-    let addr = "0.0.0.0:50051".parse()?;
-    let manager = BaseballWeightsManager::new(
+    let addr: std::net::SocketAddr = "0.0.0.0:50051".parse()?;
+    let manager: BaseballWeightsManager = BaseballWeightsManager::new(
         network_map,
         dev,
         0.001

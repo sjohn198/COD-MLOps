@@ -87,7 +87,7 @@ def run():
         model = WinPredictor()
         state_dict = model.state_dict()
 
-        layer_names = sorted(state_dict.keys())
+        layer_names = list(state_dict.keys())
         for layer_data in layers_resp.layers:
             layer_name = layer_names[layer_data.id]
             target_shape = state_dict[layer_name].shape
@@ -172,6 +172,7 @@ def run():
             running_loss = 0.0
 
             train_pbar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{epochs} [Train]")
+            print(f"Epoch {epoch+1}/{epochs} [Train]")
             for batch_idx, (features, labels) in enumerate(train_pbar):
                 features, labels = features.to(device), labels.to(device)
 
@@ -190,11 +191,25 @@ def run():
                         layer = model_pb2.LayerGradient(id=layer_id, weights=grad_list)
                         layers.append(layer)
 
-                print("Model update")
+                #print("Model update")
                 model_update = model_pb2.ModelUpdate(layers=layers)
                 send_update = stub.UpdateWeights(model_update)
 
-                #optimizer.step()
+                weight_request = model_pb2.WeightsRequest(worker_id=worker_id)
+                layers_resp = stub.RequestWeights(weight_request)
+
+                current_state = model.state_dict()
+                keys_list = list(current_state.keys())
+
+                for layer in layers_resp.layers:
+                    name = keys_list[layer.id]
+                    shape = current_state[name].shape
+
+                    flat_tensor = torch.tensor(layer.weights, dtype=torch.float32)
+                    current_state[name].copy_(flat_tensor.view(shape))
+
+                model.load_state_dict(current_state)
+                model.zero_grad()
 
                 running_loss += loss.item()
 

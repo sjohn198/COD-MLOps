@@ -1,12 +1,25 @@
 services:
+  network_map_producer:
+    build:
+      context: ./python_client
+      dockerfile: Dockerfile
+    command: ["python3", "produce_model_structure.py"]
+    volumes:
+      - ./python_client/network_map.json:/app/network_map.json
+
   server:
     build:
       context: ./rust_grpc_server
       dockerfile: Dockerfile
     ports:
       - "50051:50051"
+    depends_on:
+      network_map_producer:
+        condition: service_completed_successfully
     networks:
       - grpc_net
+    volumes:
+      - ./python_client/network_map.json:/app/network_map.json
     healthcheck:
       test: ["CMD", "bash", "-c", "</dev/tcp/localhost/50051"]
       interval: 3s

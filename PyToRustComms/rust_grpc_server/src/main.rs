@@ -57,7 +57,7 @@ fn calculate_moments(
     first_decay_rate: f32,
     second_decay_rate: f32,
     gradients: &Tensor,
-    iteration: i32) ->  Result<(Tensor, Tensor)>{
+    iteration: i32) ->  Result<(Tensor, Tensor, Tensor, Tensor)>{
         let decayed_gradients: Tensor = gradients.affine((1.0 - first_decay_rate) as f64, 0.0)?;
         let decayed_first_moment: Tensor = first_moment.affine(first_decay_rate as f64, 0.0)?;
         let new_first_moment: Tensor = (decayed_first_moment + &decayed_gradients)?;
@@ -70,7 +70,12 @@ fn calculate_moments(
         let bias_corrected_first_moment: Tensor = new_first_moment.affine((1.0 / (1.0 - first_decay_rate.powi(iteration))) as f64, 0.0)?;
         let bias_corrected_second_moment: Tensor = new_second_moment.affine((1.0 / (1.0 - second_decay_rate.powi(iteration))) as f64, 0.0)?;
 
-        Ok((bias_corrected_first_moment, bias_corrected_second_moment))
+        Ok((
+            new_first_moment,
+            new_second_moment,
+            bias_corrected_first_moment, 
+            bias_corrected_second_moment
+        ))
 }   
 
 
@@ -95,8 +100,8 @@ pub struct BaseballWeightsManager {
     pub network_map: NetworkMap,
     pub num_conns: Arc<AtomicI32>,
     pub max_conns: i32,
-    pub first_moment_map: HashMap<usize, Tensor>,
-    pub second_moment_map: HashMap<usize, Tensor>,
+    pub first_moment_map: Arc<Mutex<HashMap<usize, Tensor>>>,
+    pub second_moment_map: Arc<Mutex<HashMap<usize, Tensor>>>,
     pub learning_rate: f32,
     pub iteration: AtomicI32
 }
@@ -108,29 +113,38 @@ impl BaseballWeightsManager {
         learning_rate: f32
     ) -> Result<Self> {
         let mut weight: Vec<Tensor> = Vec::new();
-
-        for i in 0..network_map.layers.len(){
-            let shape: (usize, usize) = (network_map.layers[i].0 as usize, network_map.layers[i].1 as usize);
-
-            let fan_in: f64 = shape.1 as f64;
-            let kaiming_std_dev: f32 = (2.0 / fan_in).sqrt() as f32;
-            let layer_init: Tensor = Tensor::randn(
-                0.0f32,
-                kaiming_std_dev,
-                shape,
-                &dev
-            )?;
-            weight.push(layer_init);
-        }
-
         let network_info: &Vec<(i32, i32)> = &network_map.layers;
         let mut first_moment_map: HashMap<usize, Tensor> = HashMap::new();
         let mut second_moment_map: HashMap<usize, Tensor> = HashMap::new();
+        let mut current_idx = 0;
+
         for i in 0..network_info.len() {
-            let shape: (usize, usize) = (network_info[i].0 as usize, network_info[i].1 as usize);
-            let blank_moment: Tensor = Tensor::zeros(shape, candle_core::DType::F32, &dev).expect("Failed to initialize blank moment");
-            first_moment_map.insert(i, blank_moment.clone());
-            second_moment_map.insert(i, blank_moment.clone());
+            let in_dim: usize = network_info[i].0 as usize;
+            let out_dim: usize = network_info[i].1 as usize;
+
+            let w_shape = (in_dim, out_dim);
+            let w_std_dev: f32 = (2.0 / (out_dim as f64)).sqrt() as f32;
+            
+            let w_tensor = Tensor::randn(0.0f32, w_std_dev, w_shape, &dev)?;
+            weight.push(w_tensor);
+
+            let w_moment = Tensor::zeros(w_shape, candle_core::DType::F32, &dev).unwrap();
+            first_moment_map.insert(current_idx, w_moment.clone());
+            second_moment_map.insert(current_idx, w_moment.clone());
+            
+            current_idx += 1;
+
+            let b_shape = out_dim;
+            let b_std_dev: f32 = (2.0 / (out_dim as f64)).sqrt() as f32;
+            
+            let b_tensor = Tensor::randn(0.0f32, b_std_dev, b_shape, &dev)?; 
+            weight.push(b_tensor);
+
+            let b_moment = Tensor::zeros(b_shape, candle_core::DType::F32, &dev).unwrap();
+            first_moment_map.insert(current_idx, b_moment.clone());
+            second_moment_map.insert(current_idx, b_moment.clone());
+            
+            current_idx += 1;
         }
 
         Ok(
@@ -140,8 +154,8 @@ impl BaseballWeightsManager {
                 network_map,
                 num_conns: Arc::new(AtomicI32::new(0)),
                 max_conns: 5,
-                first_moment_map,
-                second_moment_map,
+                first_moment_map: Arc::new(Mutex::new(first_moment_map)),
+                second_moment_map: Arc::new(Mutex::new(second_moment_map)),
                 learning_rate,
                 iteration: AtomicI32::new(1),
             }
@@ -157,44 +171,51 @@ impl WeightsManager for BaseballWeightsManager {
     ) -> std::result::Result<Response<WeightResponse>, Status> {
         let req_data: ModelUpdate = request.into_inner();
         let network_info: &Vec<(i32, i32)> = &self.network_map.layers;
-        println!("Pre layer loop");
+        //println!("Pre layer loop");
+        let mut state: MutexGuard<Vec<Tensor>> = self.weights.lock().await;
+        let mut fm_guard: MutexGuard<HashMap<usize, Tensor>>= self.first_moment_map.lock().await;
+        let mut sm_guard: MutexGuard<HashMap<usize, Tensor>> = self.second_moment_map.lock().await;
         for layer in req_data.layers {
-            let mut i: usize = layer.id as usize;
-            if i % 2 == 1 {
-                continue;
-            } else {
-                i /= 2;
-            }
-            let shape: (usize, usize) = (network_info[i].0 as usize, network_info[i].1 as usize);
-            println!("Layer id: {}", layer.id);
-            println!("Receiced {} gradients.", layer.weights.len());
-            println!("Shape dim 1: {}, Shape dim 2: {}", network_info[i].0, network_info[i].1);
+            let i: usize = layer.id as usize;
+            let network_idx: usize = i / 2;
 
-            let flat_tensor: Tensor = Tensor::from_vec(layer.weights, shape.0 * shape.1, &self.device).map_err(|e| Status::internal(e.to_string()))?;
+            let in_dim: usize = network_info[network_idx].0 as usize;
+            let out_dim: usize = network_info[network_idx].1 as usize;
+            let shape: Vec<usize> = if i % 2 == 1 {
+                vec![out_dim]
+            } else {
+                vec![in_dim, out_dim]
+            };
+            // println!("Layer id: {}", layer.id);
+            // println!("Receiced {} gradients.", layer.weights.len());
+            // println!("Shape dim 1: {}, Shape dim 2: {}", network_info[network_idx].0, network_info[network_idx].1);
+
+            let flat_tensor: Tensor = Tensor::from_vec(layer.weights.clone(), layer.weights.len(), &self.device).map_err(|e| Status::internal(e.to_string()))?;
             let gradients: Tensor = flat_tensor.reshape(shape).map_err(|e| Status::internal(e.to_string()))?;
 
             let first_decay_rate: f32 = 0.9;
             let second_decay_rate: f32 = 0.999;
 
             let current_iter: i32 = self.iteration.load(Ordering::SeqCst);
-            let (temp_fm, temp_sm): (Tensor, Tensor) = calculate_moments(
-                self.first_moment_map.get(&i).unwrap(),
-                self.second_moment_map.get(&i).unwrap(),
+            let (raw_fm, raw_sm, corr_fm, corr_sm): (Tensor, Tensor, Tensor, Tensor) = calculate_moments(
+                fm_guard.get(&i).unwrap(),
+                sm_guard.get(&i).unwrap(),
                 first_decay_rate,
                 second_decay_rate,
                 &gradients,
                 current_iter
             ).map_err(|e| Status::internal(e.to_string()))?;
-            let sqrt_sm: Tensor = temp_sm.sqrt().map_err(|e: candle_core::Error| Status::internal(e.to_string()))?;
+            fm_guard.insert(i, raw_fm);
+            sm_guard.insert(i, raw_sm);
+            let sqrt_sm: Tensor = corr_sm.sqrt().map_err(|e: candle_core::Error| Status::internal(e.to_string()))?;
             let epsilon: f32 = 1e-8;
             let denom: Tensor = sqrt_sm.affine(1.0, epsilon as f64).map_err(|e: candle_core::Error| Status::internal(e.to_string()))?;
-            let frac: Tensor = (temp_fm / &denom).map_err(|e| Status::internal(e.to_string()))?;
+            let frac: Tensor = (corr_fm / &denom).map_err(|e| Status::internal(e.to_string()))?;
             let adjustment: Tensor = frac.affine(self.learning_rate as f64, 0.0).map_err(|e| Status::internal(e.to_string()))?; 
-            let mut state: MutexGuard<Vec<Tensor>> = self.weights.lock().await;
             let new_weights: Tensor = (&state[i] - &adjustment).map_err(|e: candle_core::Error| Status::internal(e.to_string()))?;
             state[i] = new_weights;  
         }
-        println!("Post layer loop");
+        //println!("Post layer loop");
         self.iteration.fetch_add(1, Ordering::SeqCst);
         //convert layers to Tensor and pass to calculate moments. Also track moments
 
@@ -205,8 +226,8 @@ impl WeightsManager for BaseballWeightsManager {
         &self,
         request: Request<WeightsRequest>
     ) -> std::result::Result<Response<ModelUpdate>, Status> {
-        let req_data: WeightsRequest = request.into_inner();
-        println!("Worker id: {}", req_data.worker_id);
+        let _req_data: WeightsRequest = request.into_inner();
+        //println!("Worker id: {}", req_data.worker_id);
         
         let state: MutexGuard<Vec<Tensor>> = self.weights.lock().await;
         let mut response_layers: Vec<LayerGradient> = Vec::with_capacity(state.len());
@@ -251,7 +272,13 @@ impl WeightsManager for BaseballWeightsManager {
 
 #[tokio::main]
 async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
-    let network_map: NetworkMap = read_config_from_file("network_map.json")?;
+    let network_map: NetworkMap = read_config_from_file("/app/network_map.json")?;
+    //for debugging purposes
+    let layers: &Vec<(i32, i32)> = &network_map.layers;
+    for layer in layers {
+        println!("Current layer: {}, {}", layer.0, layer.1);
+    }
+
     let dev: Device = Device::new_metal(0).unwrap_or(Device::Cpu);
 
     let addr: std::net::SocketAddr = "0.0.0.0:50051".parse()?;

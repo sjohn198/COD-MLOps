@@ -7,3 +7,4 @@ PyToRustComms/dataset/
 **/client_env/
 **/__pycache__/
 **/target/
+PyToRustComms/results/*

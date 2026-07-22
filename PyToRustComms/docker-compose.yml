@@ -20,6 +20,7 @@ services:
       - grpc_net
     volumes:
       - ./python_client/network_map.json:/app/network_map.json
+      - ./results:/app/results
     healthcheck:
       test: ["CMD", "bash", "-c", "</dev/tcp/localhost/50051"]
       interval: 3s
@@ -33,6 +34,7 @@ services:
     command: ["python3", "build_scaler.py"]
     volumes:
       - ../BaseballPred/dataset:/app/data
+      - ./results:/app/results
     networks:
       - grpc_net
 
@@ -49,6 +51,7 @@ services:
         condition: service_completed_successfully
     volumes:
       - ../BaseballPred/dataset:/app/data
+      - ./results:/app/results
     networks:
       - grpc_net
     deploy:

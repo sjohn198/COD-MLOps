@@ -11,8 +11,10 @@ use tokio::sync::{ Mutex, MutexGuard };
 use std::sync::atomic::{AtomicI32, Ordering};
 use candle_core::{Device, Tensor, Result};
 use serde::{Serialize, Deserialize};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::io::BufReader;
+use chrono::{Local, DateTime};
+use std::fs;
 
 
 pub mod parameter_server {
@@ -103,14 +105,16 @@ pub struct BaseballWeightsManager {
     pub first_moment_map: Arc<Mutex<HashMap<usize, Tensor>>>,
     pub second_moment_map: Arc<Mutex<HashMap<usize, Tensor>>>,
     pub learning_rate: f32,
-    pub iteration: AtomicI32
+    pub iteration: AtomicI32,
+    pub path: PathBuf
 }
 
 impl BaseballWeightsManager {
     fn new(
         network_map: NetworkMap,
         dev: Device,
-        learning_rate: f32
+        learning_rate: f32,
+        path: PathBuf
     ) -> Result<Self> {
         let mut weight: Vec<Tensor> = Vec::new();
         let network_info: &Vec<(i32, i32)> = &network_map.layers;
@@ -158,6 +162,7 @@ impl BaseballWeightsManager {
                 second_moment_map: Arc::new(Mutex::new(second_moment_map)),
                 learning_rate,
                 iteration: AtomicI32::new(1),
+                path: path
             }
         )
     }
@@ -251,10 +256,15 @@ impl WeightsManager for BaseballWeightsManager {
         _request: Request<GoodMorning>
     ) -> std::result::Result<Response<WorkerRegistration>, Status> {
         println!("Num_conns: {:?}, max_conns: {:?}", self.num_conns, self.max_conns);
+        let path_string: String = match self.path.to_str() {
+            Some(s) => s.to_string(),
+            None => panic!("Path contains invalid UTF-8 characters")
+        };
         let reply: WorkerRegistration = if self.num_conns.load(Ordering::SeqCst) == self.max_conns {
             WorkerRegistration {
                 success: false,
-                worker_id: -1
+                worker_id: -1,
+                path: path_string
             }
         } else {
             let prev_num_conn = self.num_conns.fetch_add(1, Ordering::SeqCst);
@@ -262,7 +272,8 @@ impl WeightsManager for BaseballWeightsManager {
             let worker_id = prev_num_conn; //may want to make this pnc + 1
             WorkerRegistration {
                 success: true,
-                worker_id: worker_id
+                worker_id: worker_id,
+                path: path_string
             }
         };
         Ok(Response::new(reply))
@@ -279,13 +290,19 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         println!("Current layer: {}, {}", layer.0, layer.1);
     }
 
+    let now: DateTime<Local> = Local::now();
+    let timestamp_string: String = now.format("%Y-%m-%d %H:%M:%S").to_string();
+    let path: PathBuf = Path::new("/app/results").join(&timestamp_string);
+    fs::create_dir_all(&path)?;
+
     let dev: Device = Device::new_metal(0).unwrap_or(Device::Cpu);
 
     let addr: std::net::SocketAddr = "0.0.0.0:50051".parse()?;
     let manager: BaseballWeightsManager = BaseballWeightsManager::new(
         network_map,
         dev,
-        0.001
+        0.001,
+        path
     )?;
 
     println!("gRPC Server listening on {}", addr);

@@ -5,7 +5,7 @@ import warnings
 
 import model_pb2 as model__pb2
 
-GRPC_GENERATED_VERSION = '1.80.0'
+GRPC_GENERATED_VERSION = '1.81.1'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 
@@ -25,7 +25,7 @@ if _version_not_supported:
     )
 
 
-class WeightsManagerStub(object):
+class WeightsManagerStub:
     """Missing associated documentation comment in .proto file."""
 
     def __init__(self, channel):
@@ -51,7 +51,7 @@ class WeightsManagerStub(object):
                 _registered_method=True)
 
 
-class WeightsManagerServicer(object):
+class WeightsManagerServicer:
     """Missing associated documentation comment in .proto file."""
 
     def UpdateWeights(self, request, context):
@@ -98,7 +98,7 @@ def add_WeightsManagerServicer_to_server(servicer, server):
 
 
  # This class is part of an EXPERIMENTAL API.
-class WeightsManager(object):
+class WeightsManager:
     """Missing associated documentation comment in .proto file."""
 
     @staticmethod

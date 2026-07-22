@@ -29,4 +29,5 @@ message GoodMorning {}
 message WorkerRegistration {
     bool success = 1;
     int32 worker_id = 2;
+    string path = 3;
 }

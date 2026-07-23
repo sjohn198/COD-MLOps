@@ -6,7 +6,6 @@ import torch
 import os
 import pandas as pd
 import joblib
-from sklearn.preprocessing import StandardScaler
 from baseball_iterable_dataset import BaseballData
 import json
 from torch.utils.data import DataLoader
@@ -19,6 +18,7 @@ from sklearn.calibration import calibration_curve, CalibrationDisplay
 import numpy as np
 import matplotlib.pyplot as plt
 from safetensors.torch import save_file
+import shutil
 
 #command to compile proto: python3 -m grpc_tools.protoc -I ../rust_grpc_server/proto --python_out=. --grpc_python_out=. ../rust_grpc_server/proto/model.proto
 
@@ -172,9 +172,11 @@ def run():
 
         criterion = nn.CrossEntropyLoss()
         epochs = 10
-        best_brier = 1
-        briers = []
         #print("Registered Parameters:", list(model.named_parameters()))
+
+        if worker_id == 0:
+            best_brier = 1
+            briers = []
 
         for epoch in range(epochs):
             model.train()
@@ -225,6 +227,7 @@ def run():
                 train_pbar.set_postfix({"Loss": f"{running_loss/(batch_idx+1):.4f}"})
             
             if worker_id == 0:
+
                 weight_request = model_pb2.WeightsRequest(worker_id=worker_id)
                 layers_resp = stub.RequestWeights(weight_request)
 
@@ -284,16 +287,35 @@ def run():
                         print(f"New best model found on epoch {epoch + 1}")
                         save_file(model.state_dict(), f"{path}/best_baseball_predictor.safetensors")
 
-
-                    fig, ax = plt.subplots(figsize=(8,8))
-                    display = CalibrationDisplay.from_predictions(
+                    prob_pred, prob_true = calibration_curve(
                         y_true=final_targets,
                         y_prob=final_probs,
                         n_bins=10,
-                        name="Win Predictor Epoch{}".format(epoch+1),
-                        ax=ax,
                         strategy="uniform"
                     )
+
+                    json_path = f"{path}/data_epoch_{epoch+1}.json"
+
+                    with open(json_path, "w") as f:
+                        results = {
+                            "Accuracy": acc,
+                            "Precision": precision,
+                            "Recall": recall,
+                            "F1": f1,
+                            "Brier": brier,
+                            "Mean_Predicted_Probability": prob_pred.tolist(),
+                            "Fraction_of_Positives": prob_true.tolist()
+                        }
+                        json.dump(results, f)
+
+                    fig, ax = plt.subplots(figsize=(8,8))
+                    display = CalibrationDisplay(
+                        prob_true=prob_true,
+                        prob_pred=prob_pred,
+                        y_prob=final_probs,
+                        estimator_name="Win Predictor Epoch{}".format(epoch+1)
+                    )
+                    display.plot(ax=ax)
                     
                     ax.set_title(f"Calibration Curve - Epoch {epoch+1}")
                     ax.grid(True, linestyle='--', alpha=0.7)
@@ -326,6 +348,10 @@ def run():
 
             plt.savefig(f"{path}/brier_score_history.png", dpi=300, bbox_inches='tight')
             plt.close(fig2)
+
+            source_file = "win_predictor.py"
+            destination_file = os.path.join(path, "win_predictor.py")
+            shutil.copy2(source_file, destination_file)
 
 if __name__ == '__main__':
     run()

@@ -33,7 +33,7 @@ services:
       dockerfile: Dockerfile
     command: ["python3", "build_scaler.py"]
     volumes:
-      - ../BaseballPred/dataset:/app/data
+      - ./dataset:/app/data
       - ./results:/app/results
     networks:
       - grpc_net
@@ -50,7 +50,7 @@ services:
       scaler_builder:
         condition: service_completed_successfully
     volumes:
-      - ../BaseballPred/dataset:/app/data
+      - ./dataset:/app/data
       - ./results:/app/results
     networks:
       - grpc_net

@@ -1,10 +1,11 @@
 **/venv/
-BaseballPred/dataset/
-PyToRustComms/dataset/
+dataset/
 *.pkl
 *.pth
 *.safetensors
 **/client_env/
 **/__pycache__/
 **/target/
-PyToRustComms/results/*
+
+results/*
+!results/.gitkeep

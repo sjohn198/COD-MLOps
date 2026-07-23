@@ -1,4 +1,0 @@
-input_layer-Linear
-hidden_layer-Linear
-out_layer-Linear
-activation-ReLU

@@ -85,7 +85,7 @@ def read_by_year(year, dataset_dir):
 
 
 if __name__ == "__main__":
-    dataset_dir = "dataset"
+    dataset_dir = "../dataset"
     
     for i in range(2008, 2026):
         read_by_year(str(i), dataset_dir)

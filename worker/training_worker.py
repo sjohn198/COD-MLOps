@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 from safetensors.torch import save_file
 import shutil
 
-#command to compile proto: python3 -m grpc_tools.protoc -I ../rust_grpc_server/proto --python_out=. --grpc_python_out=. ../rust_grpc_server/proto/model.proto
+#command to compile proto: python3 -m grpc_tools.protoc -I ../server/proto --python_out=. --grpc_python_out=. ../server/proto/model.proto
 
 def verify_data_files():
     filepaths = [

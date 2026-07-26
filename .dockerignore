@@ -1,4 +1,4 @@
-python_client/client_env/
-python_client/__pycache__/
+worker/client_env/
+worker/__pycache__/
 *.pyc
 results/*

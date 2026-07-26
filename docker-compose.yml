@@ -1,11 +1,11 @@
 services:
   network_map_producer:
     build:
-      context: ./python_client
+      context: ./worker
       dockerfile: Dockerfile
     command: ["python3", "produce_model_structure.py"]
     volumes:
-      - ./python_client/network_map.json:/app/network_map.json
+      - ./worker/network_map.json:/app/network_map.json
 
   server:
     build:
@@ -19,7 +19,7 @@ services:
     networks:
       - grpc_net
     volumes:
-      - ./python_client/network_map.json:/app/network_map.json
+      - ./worker/network_map.json:/app/network_map.json
       - ./results:/app/results
     healthcheck:
       test: ["CMD", "bash", "-c", "</dev/tcp/localhost/50051"]
@@ -29,7 +29,7 @@ services:
   
   scaler_builder:
     build:
-      context: ./python_client
+      context: ./worker
       dockerfile: Dockerfile
     command: ["python3", "build_scaler.py"]
     volumes:
@@ -40,7 +40,7 @@ services:
 
   client:
     build:
-      context: ./python_client
+      context: ./worker
       dockerfile: Dockerfile
     environment:
       - GRPC_SERVER_ADDRESS=server:50051
